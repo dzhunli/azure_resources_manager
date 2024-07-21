@@ -8,62 +8,58 @@ class AzureApp:
     def __init__(self, root):
         self.root = root
         self.root.title("Azure Subscription Manager")
-        self.root.geometry("600x800")
+        self.root.geometry("600x850")
 
         self.json_file = ""
 
         self.frame = ttk.Frame(root)
         self.frame.pack(pady=20, padx=20, fill='x')
 
-        self.login_button = ttk.Button(self.frame, text="Login to Azure", command=self.login_to_azure)
+        self.login_button = tk.Button(self.frame, text="Login to Azure", command=self.login_to_azure, bg="lightgray")
         self.login_button.pack(pady=10, padx=20, fill='x')
 
-        self.get_list_button = ttk.Button(self.frame, text="Get Subscriptions List", command=self.get_subscriptions_list)
+        self.get_list_button = tk.Button(self.frame, text="Get Subscriptions List", command=self.get_subscriptions_list, bg="lightgray")
         self.get_list_button.pack(pady=10, padx=20, fill='x')
 
-        self.validate_button = ttk.Button(self.frame, text="Validate Subscriptions", command=self.validate_subscriptions)
+        self.validate_button = tk.Button(self.frame, text="Validate Subscriptions", command=self.validate_subscriptions, bg="lightgray")
         self.validate_button.pack(pady=10, padx=20, fill='x')
 
-        self.delete_button = ttk.Button(self.frame, text="Delete Resources", command=self.delete_resources)
+        self.delete_button = tk.Button(self.frame, text="Delete Resources", command=self.delete_resources, bg="lightgray")
         self.delete_button.pack(pady=10, padx=20, fill='x')
 
-        self.generate_button = ttk.Button(self.frame, text="Generate JSON for Non-Empty Subscriptions", command=self.generate_non_empty_subscriptions_json)
+        self.generate_button = tk.Button(self.frame, text="Generate JSON for Non-Empty Subscriptions", command=self.generate_non_empty_subscriptions_json, bg="lightgray")
         self.generate_button.pack(pady=10, padx=20, fill='x')
 
-        self.cancel_empty_button = ttk.Button(self.frame, text="Cancel Empty Subscriptions", command=self.cancel_empty_subscriptions)
+        self.cancel_empty_button = tk.Button(self.frame, text="Cancel Empty Subscriptions", command=self.cancel_empty_subscriptions, bg="lightgray")
         self.cancel_empty_button.pack(pady=10, padx=20, fill='x')
 
-        self.email_label = ttk.Label(self.frame, text="Admin Email:")
+        self.email_label = tk.Label(self.frame, text="Admin Email:")
         self.email_label.pack(pady=5, padx=20, fill='x')
         
-        self.email_entry = ttk.Entry(self.frame)
+        self.email_entry = tk.Entry(self.frame)
         self.email_entry.pack(pady=5, padx=20, fill='x')
 
-        self.file_button = ttk.Button(self.frame, text="Select JSON File", command=self.select_json_file)
+        self.file_button = tk.Button(self.frame, text="Select JSON File", command=self.select_json_file, bg="lightgray")
         self.file_button.pack(pady=10, padx=20, fill='x')
 
-        self.file_label = ttk.Label(self.frame, text="No JSON file selected")
+        self.file_label = tk.Label(self.frame, text="No JSON file selected")
         self.file_label.pack(pady=5, padx=20, fill='x')
 
         self.enabled_var = tk.StringVar(value="true")
 
-        self.enabled_true_radio = ttk.Radiobutton(self.frame, text="Enabled=True", variable=self.enabled_var, value="true")
+        self.enabled_true_radio = tk.Radiobutton(self.frame, text="Enabled=True", variable=self.enabled_var, value="true")
         self.enabled_true_radio.pack(pady=5, padx=20, fill='x')
 
-        self.enabled_false_radio = ttk.Radiobutton(self.frame, text="Enabled=False", variable=self.enabled_var, value="false")
+        self.enabled_false_radio = tk.Radiobutton(self.frame, text="Enabled=False", variable=self.enabled_var, value="false")
         self.enabled_false_radio.pack(pady=5, padx=20, fill='x')
 
-        self.progress_label = ttk.Label(root, text="")
+        self.progress_label = tk.Label(root, text="")
         self.progress_label.pack(pady=5)
 
-        style = ttk.Style()
-        style.theme_use('default')
-        style.configure("TProgressbar", troughcolor='white', background='green')
-
-        self.progress_bar = ttk.Progressbar(root, orient="horizontal", length=400, mode="determinate", style="TProgressbar")
+        self.progress_bar = ttk.Progressbar(root, orient="horizontal", length=400, mode="determinate")
         self.progress_bar.pack(pady=20)
 
-        self.log_text = scrolledtext.ScrolledText(root, width=70, height=20, state='normal')
+        self.log_text = scrolledtext.ScrolledText(root, width=70, height=50, state='normal')
         self.log_text.pack(pady=20)
         self.log_text.config(state='disabled')
 
@@ -79,13 +75,14 @@ class AzureApp:
         if "Please open the following website" in result:
             messagebox.showinfo("Info", "Please complete the login in your browser.")
         elif result:
+            self.login_button.config(bg="green", fg="white")
             messagebox.showinfo("Success", "Logged in to Azure successfully.")
 
     def log_message(self, message):
         self.log_text.config(state='normal')
         self.log_text.insert(tk.END, message + "\n")
         self.log_text.config(state='disabled')
-        self.log_text.yview(tk.END)  # Auto-scroll to the end
+        self.log_text.yview(tk.END)
 
     def get_subscriptions_list(self):
         subscriptions = self.run_command("az account list --all --query '[].id' -o tsv")
@@ -194,17 +191,14 @@ class AzureApp:
 
             subscription_id = subscription['id']
 
-            self.log_message("-----------------------------------------")
             self.log_message(f"Processing subscription: {subscription_id}")
+            self.run_command(f"az role assignment create --role 'Owner' --assignee {admin_id} --scope /subscriptions/{subscription_id}")
 
             resources = self.run_command(f"az resource list --subscription {subscription_id} --query '[].id' -o tsv")
-            if not resources.strip():
-                self.log_message(f"No resources found for subscription: {subscription_id}. Skipping.")
-                continue
-
-            self.run_command(f"az role assignment create --role 'Owner' --assignee {admin_id} --subscription {subscription_id} --scope /subscriptions/{subscription_id}")
-            self.run_command(f"sleep 5")
-            token = self.run_command("az account get-access-token --query accessToken -o tsv").strip()
+            if resources.strip():
+                self.log_message(f"Resources found: {resources.strip()}")
+            else:
+                self.log_message("No resources found")
 
             for resource_id in resources.splitlines():
                 self.log_message(f"Deleting resource: {resource_id}")
@@ -239,9 +233,9 @@ class AzureApp:
                         "enabled": enabled
                     })
 
-            with open("no_empty_subscriptions.json", "w") as f:
+            with open("non_empty_subscriptions.json", "w") as f:
                 json.dump(non_empty_subscriptions, f, indent=2)
-            messagebox.showinfo("Success", "JSON data has been saved to no_empty_subscriptions.json")
+            messagebox.showinfo("Success", "JSON data for non-empty subscriptions has been saved to non_empty_subscriptions.json")
             self.progress_label.config(text="")
             self.progress_bar["value"] = 0
 
