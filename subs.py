@@ -1,5 +1,5 @@
 import tkinter as tk
-from tkinter import messagebox, ttk, filedialog
+from tkinter import messagebox, ttk, filedialog, scrolledtext
 import subprocess
 import json
 import os
@@ -8,9 +8,8 @@ class AzureApp:
     def __init__(self, root):
         self.root = root
         self.root.title("Azure Subscription Manager")
-        self.root.geometry("600x700")
+        self.root.geometry("600x800")
 
-        self.cancel_get_subscriptions = False
         self.json_file = ""
 
         self.frame = ttk.Frame(root)
@@ -22,14 +21,17 @@ class AzureApp:
         self.get_list_button = ttk.Button(self.frame, text="Get Subscriptions List", command=self.get_subscriptions_list)
         self.get_list_button.pack(pady=10, padx=20, fill='x')
 
-        self.cancel_button = ttk.Button(self.frame, text="Cancel", command=self.cancel_getting_subscriptions)
-        self.cancel_button.pack(pady=10, padx=20, fill='x')
-
         self.validate_button = ttk.Button(self.frame, text="Validate Subscriptions", command=self.validate_subscriptions)
         self.validate_button.pack(pady=10, padx=20, fill='x')
 
         self.delete_button = ttk.Button(self.frame, text="Delete Resources", command=self.delete_resources)
         self.delete_button.pack(pady=10, padx=20, fill='x')
+
+        self.generate_button = ttk.Button(self.frame, text="Generate JSON for Non-Empty Subscriptions", command=self.generate_non_empty_subscriptions_json)
+        self.generate_button.pack(pady=10, padx=20, fill='x')
+
+        self.cancel_empty_button = ttk.Button(self.frame, text="Cancel Empty Subscriptions", command=self.cancel_empty_subscriptions)
+        self.cancel_empty_button.pack(pady=10, padx=20, fill='x')
 
         self.email_label = ttk.Label(self.frame, text="Admin Email:")
         self.email_label.pack(pady=5, padx=20, fill='x')
@@ -39,6 +41,9 @@ class AzureApp:
 
         self.file_button = ttk.Button(self.frame, text="Select JSON File", command=self.select_json_file)
         self.file_button.pack(pady=10, padx=20, fill='x')
+
+        self.file_label = ttk.Label(self.frame, text="No JSON file selected")
+        self.file_label.pack(pady=5, padx=20, fill='x')
 
         self.enabled_var = tk.StringVar(value="true")
 
@@ -51,8 +56,16 @@ class AzureApp:
         self.progress_label = ttk.Label(root, text="")
         self.progress_label.pack(pady=5)
 
-        self.progress_bar = ttk.Progressbar(root, orient="horizontal", length=400, mode="determinate")
+        style = ttk.Style()
+        style.theme_use('default')
+        style.configure("TProgressbar", troughcolor='white', background='green')
+
+        self.progress_bar = ttk.Progressbar(root, orient="horizontal", length=400, mode="determinate", style="TProgressbar")
         self.progress_bar.pack(pady=20)
+
+        self.log_text = scrolledtext.ScrolledText(root, width=70, height=20, state='normal')
+        self.log_text.pack(pady=20)
+        self.log_text.config(state='disabled')
 
     def run_command(self, command):
         try:
@@ -68,12 +81,13 @@ class AzureApp:
         elif result:
             messagebox.showinfo("Success", "Logged in to Azure successfully.")
 
-    def cancel_getting_subscriptions(self):
-        self.cancel_get_subscriptions = True
-        self.progress_label.config(text="Cancelling...")
+    def log_message(self, message):
+        self.log_text.config(state='normal')
+        self.log_text.insert(tk.END, message + "\n")
+        self.log_text.config(state='disabled')
+        self.log_text.yview(tk.END)  # Auto-scroll to the end
 
     def get_subscriptions_list(self):
-        self.cancel_get_subscriptions = False
         subscriptions = self.run_command("az account list --all --query '[].id' -o tsv")
         if subscriptions:
             subscriptions = subscriptions.split()
@@ -81,10 +95,6 @@ class AzureApp:
             subscriptions_json = []
 
             for counter, subscription_id in enumerate(subscriptions, start=1):
-                if self.cancel_get_subscriptions:
-                    self.progress_label.config(text="Cancelled")
-                    return
-
                 self.progress_label.config(text=f"Processing subscription {counter} of {total_subscriptions}: {subscription_id}")
                 self.progress_bar["value"] = (counter / total_subscriptions) * 100
                 self.root.update_idletasks()
@@ -150,7 +160,10 @@ class AzureApp:
     def select_json_file(self):
         self.json_file = filedialog.askopenfilename(title="Select JSON File", filetypes=(("JSON Files", "*.json"), ("All Files", "*.*")))
         if self.json_file:
+            self.file_label.config(text=f"Selected JSON file: {self.json_file}")
             messagebox.showinfo("Selected File", f"Selected JSON file: {self.json_file}")
+        else:
+            self.file_label.config(text="No JSON file selected")
 
     def delete_resources(self):
         json_file = self.json_file
@@ -181,35 +194,85 @@ class AzureApp:
 
             subscription_id = subscription['id']
 
-            with open("deletion.log", "a") as log_file:
-                log_file.write("-----------------------------------------\n")
-                log_file.write(f"Processing subscription: {subscription_id}\n")
+            self.log_message("-----------------------------------------")
+            self.log_message(f"Processing subscription: {subscription_id}")
 
             resources = self.run_command(f"az resource list --subscription {subscription_id} --query '[].id' -o tsv")
             if not resources.strip():
-                with open("deletion.log", "a") as log_file:
-                    log_file.write(f"No resources found for subscription: {subscription_id}. Skipping.\n")
+                self.log_message(f"No resources found for subscription: {subscription_id}. Skipping.")
                 continue
 
             self.run_command(f"az role assignment create --role 'Owner' --assignee {admin_id} --subscription {subscription_id} --scope /subscriptions/{subscription_id}")
-            self.run_command(f"az account set --subscription {subscription_id}")
             self.run_command(f"sleep 5")
             token = self.run_command("az account get-access-token --query accessToken -o tsv").strip()
 
             for resource_id in resources.splitlines():
-                with open("deletion.log", "a") as log_file:
-                    log_file.write(f"Deleting resource: {resource_id}\n")
+                self.log_message(f"Deleting resource: {resource_id}")
                 self.run_command(f"az resource delete --ids {resource_id}")
 
-            self.run_command(f"curl -X POST https://management.azure.com/subscriptions/{subscription_id}/providers/Microsoft.Subscription/cancel?api-version=2021-10-01 -H 'Authorization: Bearer {token}' -H 'Content-Type: application/json' -d '{{}}' -H 'Content-Length: 2'")
             self.run_command(f"az role assignment delete --role 'Owner' --assignee {admin_id} --scope /subscriptions/{subscription_id}")
 
-            with open("deletion.log", "a") as log_file:
-                log_file.write("-----------------------------------------\n")
+            self.log_message("-----------------------------------------")
 
         messagebox.showinfo("Success", "Processing completed.")
         self.progress_label.config(text="")
         self.progress_bar["value"] = 0
+
+    def generate_non_empty_subscriptions_json(self):
+        subscriptions = self.run_command("az account list --all --query '[].id' -o tsv")
+        if subscriptions:
+            subscriptions = subscriptions.split()
+            total_subscriptions = len(subscriptions)
+            non_empty_subscriptions = []
+
+            for counter, subscription_id in enumerate(subscriptions, start=1):
+                self.progress_label.config(text=f"Checking subscription {counter} of {total_subscriptions}: {subscription_id}")
+                self.progress_bar["value"] = (counter / total_subscriptions) * 100
+                self.root.update_idletasks()
+
+                resources = self.run_command(f"az resource list --subscription {subscription_id} --query '[].id' -o tsv")
+                if resources.strip():
+                    status = self.run_command(f"az account show --subscription {subscription_id} --query 'state' -o tsv").strip()
+                    enabled = "true" if status == "Enabled" else "false"
+                    non_empty_subscriptions.append({
+                        "id": subscription_id,
+                        "enabled": enabled
+                    })
+
+            with open("no_empty_subscriptions.json", "w") as f:
+                json.dump(non_empty_subscriptions, f, indent=2)
+            messagebox.showinfo("Success", "JSON data has been saved to no_empty_subscriptions.json")
+            self.progress_label.config(text="")
+            self.progress_bar["value"] = 0
+
+    def cancel_empty_subscriptions(self):
+        subscriptions = self.run_command("az account list --all --query '[].id' -o tsv")
+        if subscriptions:
+            subscriptions = subscriptions.split()
+            total_subscriptions = len(subscriptions)
+            admin_id = self.email_entry.get()
+
+            if not admin_id:
+                messagebox.showerror("Error", "Admin email is required.")
+                return
+
+            for counter, subscription_id in enumerate(subscriptions, start=1):
+                self.progress_label.config(text=f"Checking subscription {counter} of {total_subscriptions}: {subscription_id}")
+                self.progress_bar["value"] = (counter / total_subscriptions) * 100
+                self.root.update_idletasks()
+
+                resources = self.run_command(f"az resource list --subscription {subscription_id} --query '[].id' -o tsv")
+                if not resources.strip():
+                    self.log_message(f"Cancelling empty subscription: {subscription_id}")
+                    self.run_command(f"az role assignment create --role 'Owner' --assignee {admin_id} --subscription {subscription_id} --scope /subscriptions/{subscription_id}")
+                    self.run_command(f"sleep 5")
+                    token = self.run_command("az account get-access-token --query accessToken -o tsv").strip()
+                    self.run_command(f"curl -X POST https://management.azure.com/subscriptions/{subscription_id}/providers/Microsoft.Subscription/cancel?api-version=2021-10-01 -H 'Authorization: Bearer {token}' -H 'Content-Type: application/json' -d '{{}}' -H 'Content-Length: 2'")
+                    self.run_command(f"az role assignment delete --role 'Owner' --assignee {admin_id} --scope /subscriptions/{subscription_id}")
+
+            messagebox.showinfo("Success", "Empty subscriptions cancelled.")
+            self.progress_label.config(text="")
+            self.progress_bar["value"] = 0
 
 if __name__ == "__main__":
     root = tk.Tk()
