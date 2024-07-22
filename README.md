@@ -1,11 +1,10 @@
-# Azure Resources Manager
+# Azure Subscriptions & Resources Manager
+[![generate C code && binary](https://github.com/dzhunli/azure_resources_manager/actions/workflows/build-gui.yml/badge.svg)](https://github.com/dzhunli/azure_resources_manager/actions/workflows/build-gui.yml)
 
 
 License
 -------
 [![GPLv3 License](https://img.shields.io/badge/License-GPL%20v3-yellow.svg)](https://opensource.org/licenses/)
-
-[![generate C code && binary](https://github.com/dzhunli/azure_resources_manager/actions/workflows/build-gui.yml/badge.svg)](https://github.com/dzhunli/azure_resources_manager/actions/workflows/build-gui.yml)
 
 Why is this necessary?
 ----------------------
@@ -55,4 +54,4 @@ Usage
 
 *   Ensure you have the Azure CLI installed and configured on your machine.
     
-*   Make sure you have the necessary rights in your account
+*   Make sure you have the necessary rights in your account.
