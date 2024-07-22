@@ -1,4 +1,4 @@
-name: generate C code && binary
+name: Build and Release
 
 on:
   push:
@@ -21,22 +21,17 @@ jobs:
       with:
         python-version: '3.12'
 
-    - name: Install Cython
-      run: python -m pip install cython pyinstaller
+    - name: Install dependencies
+      run: python -m pip install pyinstaller
 
-    - name: Run Cython
-      run: |
-        script=subs
-        pyinstaller --onefile --hidden-import=tkinter $script.py
-        cython $script.py --embed
-        PYTHONLIBVER=python$(python3 -c 'import sys; print(".".join(map(str, sys.version_info[:2])))')$(python3-config --abiflags)
-        gcc -Os $(python3-config --includes) $script.c -o GUI/subs_manager $(python3-config --ldflags) -l$PYTHONLIBVER
+    - name: Build with PyInstaller
+      run: pyinstaller --onefile --hidden-import=tkinter subs.py
 
     - name: Upload binary to artifact
       uses: actions/upload-artifact@v3
       with:
         name: subs_manager
-        path: GUI/subs_manager
+        path: dist/subs
 
   release:
     needs: build
@@ -50,7 +45,7 @@ jobs:
       uses: actions/download-artifact@v3
       with:
         name: subs_manager
-        path: ./GUI
+        path: ./dist
 
     - name: Create Release
       id: create_release
@@ -69,7 +64,7 @@ jobs:
         GITHUB_TOKEN: ${{ secrets.REPO_ACCESS_TOKEN }}
       with:
         upload_url: ${{ steps.create_release.outputs.upload_url }}
-        asset_path: ./GUI/subs_manager
+        asset_path: ./dist/subs
         asset_name: subs_manager
         asset_content_type: application/octet-stream
 
