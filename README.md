@@ -27,11 +27,11 @@ Usage
         
     *   Select the JSON file containing subscriptions using "Select JSON File".
         
-    *   Choose whether you want to enable or disable subscriptions using the radio buttons.
+    *   Choose whether you want to use enable or disable subscriptions using the radio buttons.
         
     *   Click "Delete Resources" to delete resources for subscriptions based on the selected criteria.
         
-5.  **Generate JSON for Non-Empty Subscriptions**: Click "Generate JSON for Non-Empty Subscriptions" to create a JSON file (no\_empty\_subscriptions.json) containing only subscriptions that have resources.
+5.  **Generate JSON for Non-Empty Subscriptions**: Click "Generate JSON for Non-Empty Subscriptions" to create a JSON file (non\_empty\_subscriptions.json) containing only subscriptions that have resources.
     
 6.  **Cancel Empty Subscriptions**: Click "Cancel Empty Subscriptions" to cancel subscriptions that do not contain any resources.
     
@@ -55,5 +55,4 @@ Usage
 
 *   Ensure you have the Azure CLI installed and configured on your machine.
     
-*   The progress bar and log window provide real-time feedback on the operations being performed.
-    
+*   Make sure you have the necessary rights in your account
